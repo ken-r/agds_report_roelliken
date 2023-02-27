@@ -1,0 +1,10 @@
+---
+title: "My Solutions AGDS"
+author: "Ken Roelli"
+site: bookdown::bookdown_site
+documentclass: book
+---
+
+
+# My Solutions AGDS
+These are my solutions to the report exercises of Applied Geodata Science

@@ -1,9 +1,4 @@
----
-title: "Report"
-author: "Ken Roelli"
-date: "`r Sys.Date()`"
-output: html_document
----
+# Report
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
