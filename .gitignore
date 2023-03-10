@@ -41,3 +41,6 @@ vignettes/*.pdf
 # Generated _book files
 _book/
 _bookdown_files/
+
+# My temporarily removed book setup files
+_book_setup/
