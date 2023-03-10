@@ -1,0 +1,107 @@
+---
+title: 'Cleaning data'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+## Manually cleaning the data
+Looks quite messy with missing values (`Experiment`) and many variables are not machine-readable like `Depth` and especially `Sample date`.
+
+I started with adding the corresponding experiment to each row because it was only written for the first experiment in the original data.
+
+Then I removed the non-necessary part of every value in the column `Depth`: Every value has prefix "0-" and suffix " cm" that can be removed without losing information and that can then be easily interpreted by a machine.
+
+Then, I wanted to improve the variable `Sample date`. It is quite tricky but I think it is best to just remove any about the month / season / average. There are too many differences between the information in this column, so I only keep the year and format it consistently. This was very time-consuming because Excel's formatting of such inconsistent dates is very strange and annoying.
+
+Then, I removed the variables `Description of data source` and `Value treatment` because these values don't help us in any way for a visualization of the data and are related to some paper.
+
+Finally, I renamed the variables to make them precise, short, consistent and without any special characters and I removed empty lines.
+
+## R workflow
+At first we need to read in the `.csv` that we have saved in the `data` folder.
+For this exercise we often use {tidyverse}, so let us load it into the environment.
+```{r loadlib, echo=T, results='hide', message=F, warning=F}
+library(tidyverse)
+```
+
+As our `.csv` is not formatted in the most standard way, we need the more general
+`readr::delim()` function instead of `readr::read_csv()`. Both come with the
+{tidyverse} package that we have already loaded.
+```{r results='hide'}
+# We need to use read_delim because our csv file has ";" as delimiter and "." as
+# decimal separator.
+soil_organic_carbon <- read_delim("./../data/soil_organic_carbon_measurements.csv",
+                                       delim = ";", 
+                                       locale = locale(decimal_mark = "."),
+                                       na = c("-")
+                                       )
+# Check if there were any problems.
+problems(soil_organic_carbon)
+```
+
+<details>
+<summary>The complete table now looks like this: [Click!]</summary>
+```{r collapsible=T}
+knitr::kable(soil_organic_carbon)
+```
+</details>
+
+Now we group it by experiments. The values we are interested in are the ambient
+CO2 concentrations (`AVG_AMB_CO2`) and the increased CO2 concentrations (`AVG_INC_CO2`).
+In our data, we get an average over some number of observation per experiment (also
+provided in the data) and at a certain time after the experiment had started.
+To get the average ambient CO2 concentrations for a single experiment, we have to
+group the data by the experiment and then count the total number of samples per
+concentration type for the whole experiment, we call it `EXP_N_*_CO2`.
+To calculate the average over the whole experiment, we have to weight the average
+per observation (`AVG_*_CO2`) by the sample size for this observation (`N_*_CO2`)
+and sum it over all observations of the same experiment. Then we have to divide it
+by the total number of samples that we have calculated before (`EXP_N_*_CO2`).
+The log response ratio is calculated as described in the exercise task.
+```{r}
+soc_per_experiment <- soil_organic_carbon |>
+  group_by(EXP) |>
+  summarise(# How many samples for the whole experiment (both concentration
+            # separately).
+            EXP_N_AMB_CO2 = sum(N_AMB_CO2),
+            EXP_N_INC_CO2 = sum(N_INC_CO2),
+            # The average must be weighted by the sample size for each observation
+            # and at the end we have to divide by the total sample size calculated
+            # above
+            EXP_AVG_AMB_CO2 = sum(AVG_AMB_CO2 * N_AMB_CO2) / EXP_N_AMB_CO2,
+            EXP_AVG_INC_CO2 = sum(AVG_INC_CO2 * N_INC_CO2) / EXP_N_INC_CO2,
+            # The log-response ratio is calculated as described in the exercise task
+            RR = log(EXP_AVG_INC_CO2 / EXP_AVG_AMB_CO2, base = exp(1))
+            )
+```
+
+*Grouped by experiments*, it looks like this:
+```{r}
+knitr::kable(soc_per_experiment)
+```
+
+We have to repeat everything that we have done above. Except now we have to introduce
+the distinction of phase as described in the task. For this the `case_when()` function
+is useful because it allows us to classify every observation into a group
+depending on the value of `TIME` for this observation.
+```{r}
+soc_per_phase <- soil_organic_carbon |>
+  mutate(PHASE = case_when(
+    TIME < 3 ~ "early",
+    between(TIME, 3, 6) ~ "mid",
+    TIME > 6 ~ "late"
+  )) |>
+  # Display them in this order, not alphabetically
+  mutate(PHASE = factor(PHASE, levels = c("early", "mid", "late"))) |>
+  group_by(PHASE) |>
+  summarise(PHA_N_AMB_CO2 = sum(N_AMB_CO2),
+            PHA_N_INC_CO2 = sum(N_INC_CO2),
+            PHA_AVG_AMB_CO2 = sum(AVG_AMB_CO2 * N_AMB_CO2) / PHA_N_AMB_CO2,
+            PHA_AVG_INC_CO2 = sum(AVG_INC_CO2 * N_INC_CO2) / PHA_N_INC_CO2,
+            RR = log(PHA_AVG_INC_CO2 / PHA_AVG_AMB_CO2, base = exp(1))
+            )
+```
+*Grouped by phases*, it looks like this:
+```{r}
+knitr::kable(soc_per_phase)
+```
