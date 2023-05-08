@@ -1,0 +1,61 @@
+---
+title: 'RE: Telling a story from data'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup and first thoughts
+At first, let's load the necessary libraries and take a look at the data. From the documentation we see that it is about New York air quality measurements from May to September 1973 (measured daily).
+The different variables were *measured at different places*, for example `Ozone` at Roosevelt Island, `Solar.R` at Central Park.
+For us, it is not so convenient to work with 'mph' and 'degrees F', so we convert it to 'kmph' and 'degrees C'. For this conversion we use the package `weathermetrics`.
+
+
+```{r message=FALSE}
+library(weathermetrics)
+library(tidyverse)
+airquality |> str()
+airquality |> summary()
+airquality |> head()
+```
+
+We immediately see some other problems: At least two columns contain `NA` values and we don't have a very large data set (153 observations).
+Let us take a further look at the missing values using the `visdat::vis_miss()` function.
+
+```{r}
+visdat::vis_miss(
+  airquality,
+  cluster = FALSE, 
+  warn_large_data = FALSE
+  )
+```
+
+Unfortunately, 24% of the rows have no `Ozone` value and 5% have no `Solar.R` value.
+We also see that most of the missing values are between row 25 and row 70.
+This decreases robustness of the analysis, especially for the months of June and early July.
+
+We convert the units and set the `Month`, `Day` as factors. Note that this unit conversion creates some floating point imprecision.
+
+```{r}
+airquality <- airquality |> 
+  mutate(across(c(Month, Day), as.factor),
+         Wind_kmh = weathermetrics::convert_wind_speed(Wind, "mph", "kmph"),
+         Temp_C = weathermetrics::convert_temperature(Temp, "f", "c"))
+str(airquality)
+```
+
+# Telling a story
+We are now interested in showing the relation between `Ozone` and the other covariates.
+We plot the distribution of ozone measurements within each month.
+
+```{r}
+plot <- ggplot(
+  data = airquality,
+  aes(x = Month, y = Ozone)) +
+  geom_boxplot(fill = "grey70", na.rm = TRUE) + # Remove the NA values
+  labs(title = "Ozone by Month") +
+  labs(x = "Month") +
+  labs(y = "Ozone (ppb)") +
+  theme_classic()
+plot
+```
