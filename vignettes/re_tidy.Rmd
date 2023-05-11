@@ -30,7 +30,7 @@ As our `.csv` is not formatted in the most standard way, we need the more genera
 ```{r results='hide'}
 # We need to use read_delim because our csv file has ";" as delimiter and "." as
 # decimal separator.
-soil_organic_carbon <- read_delim("./../data/soil_organic_carbon_measurements.csv",
+soil_organic_carbon <- read_delim(here::here("data", "soil_organic_carbon_measurements.csv"),
                                        delim = ";", 
                                        locale = locale(decimal_mark = "."),
                                        na = c("-")
@@ -101,6 +101,7 @@ soc_per_phase <- soil_organic_carbon |>
             RR = log(PHA_AVG_INC_CO2 / PHA_AVG_AMB_CO2, base = exp(1))
             )
 ```
+
 *Grouped by phases*, it looks like this:
 ```{r}
 knitr::kable(soc_per_phase)
