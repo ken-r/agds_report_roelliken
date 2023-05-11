@@ -1,0 +1,122 @@
+---
+title: 'RE: Stepwise Forward Regression'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Let us load the {tidyverse} package for the whole session.
+```{r message = FALSE}
+library(tidyverse)
+```
+
+
+At first, we need to read the csv into R
+```{r message = FALSE}
+half_hourly_fluxes <- readr::read_csv("./../data/df_for_stepwise_regression.csv")
+half_hourly_fluxes |> head()
+```
+
+Then we need to get the names of the predictors. All variables besides `siteid`,
+`TIMESTAMP` and `GPP_NT_VUT_REF` (which is the target) are predictors.
+
+```{r}
+predictors <- half_hourly_fluxes |> names()
+target <- "GPP_NT_VUT_REF"
+# Remove those variable names
+predictors <- predictors |> setdiff(c("siteid", "TIMESTAMP", target))
+predictors
+```
+
+Now we can start with `p = 1`:
+```{r}
+# Set up a tibble that contains the results (metrics) for the different models
+metrics <- tibble(predictor = character(), R2 = numeric(), AIC = numeric())
+# pred <- "TA_F"
+# linmod <- lm(as.formula(paste("GPP_NT_VUT_REF ~ ", paste(pred))), data = half_hourly_fluxes)
+# 
+# linmod |> summary()
+for (pred in predictors) {
+  # Create formula dynamically with reformulate(...)
+  linmod <- lm(reformulate(pred, target), data = half_hourly_fluxes)
+  cat(pred, "\n")
+  metrics <- metrics |> add_row(predictor = pred, R2 = summary(linmod)$adj.r.squared, AIC = extractAIC(linmod)[2])
+}
+metrics
+
+# Get optimal metrics (highest R squared value)
+optimal <- metrics |> 
+  slice_max(R2) |> # Extract rows with max value of R2
+  slice(1) # Make sure only one single row taken (although here we only have single max.)
+(optimal_pred <- optimal$predictor)
+best_mod <- lm(reformulate(optimal_pred, target), 
+               data = half_hourly_fluxes)
+
+summary(best_mod)
+```
+We see that `PPFD_IN` lead to the best performance.
+However, we also see that the AIC is very big, and we could probably improve the model by increasing `p`, so by choosing more than just one single predictor.
+
+Let us visualize it.
+```{r}
+half_hourly_fluxes |>  ggplot(aes(x = PPFD_IN, y = GPP_NT_VUT_REF)) +
+  geom_point(alpha = 0.4, na.rm = TRUE) +
+  geom_smooth(formula = y ~ x, method = "lm", aes(color = "lm"), 
+              se = FALSE, na.rm = TRUE) +
+  labs(x = "PPFD", y = "GPP", color = "Regression")
+```
+
+**Comment**
+The line matches the data to the most extent, but as we have so much variability in `GPP` for any value of `PPFD` between 0 and 750, it is not possible to accurately predict the `GPP` using only `PPFD`.
+For values of `PPFD` higher than 800, this model predicts a too high value of `GPP`.
+
+Now let us implement the complete stepwise linear regression algorithm.
+We can basically copy-paste the code from above and use it for our inner loop.
+Only slight modifications are necessary to make sure that we only check predictors only if they have not been used so far.
+
+```{r}
+# Initialize AIC metrics to infinity, so that at least one predictor will be chosen.
+previous_AIC <- Inf
+# Stores the predictors that will be used surely in the final model
+selected_predictors <- c()
+# Stores the remaining predictors (unsure whether they will be used in final model)
+remaining_predictors <- predictors
+
+for (p in 1:length(predictors)) {
+  metrics <- tibble(predictor = character(), R2 = numeric(), AIC = numeric())
+  for (pred in remaining_predictors) {
+  linmod <- lm(
+    reformulate(append(selected_predictors, pred), target), 
+    data = half_hourly_fluxes)
+  metrics <- metrics |> add_row(predictor = pred, 
+                                R2 = summary(linmod)$adj.r.squared, 
+                                AIC = extractAIC(linmod)[2])
+  }
+  # Find the index (row number) where R2 was the best (highest)
+  index_optimal <- which.max(pull(metrics, R2))
+  optimal_pred <- remaining_predictors[index_optimal]
+  optimal_metrics <- metrics[index_optimal, ]
+  # If AIC does not improve, we don't add any predictors anymore and stop the algorithm.
+  if (optimal_metrics$AIC >= previous_AIC) {
+    break
+  }
+  previous_AIC <- optimal_metrics$AIC
+  # Add the optimal predictor
+  selected_predictors <- append(selected_predictors, optimal_pred)
+  # Remove the optimal predictor found in this step from the available predictors
+  remaining_predictors <- remaining_predictors[remaining_predictors != optimal_pred]
+}
+
+(best_predictors <- selected_predictors)
+best_model <- lm(reformulate(best_predictors, target), 
+                 data = half_hourly_fluxes)
+best_model |> summary()
+```
+
+**Comment**
+Stepwise linear regression suggests that `PPFD_IN`, `LW_IN_F`, `VPD_F`, `TA_F_MDS`, `SW_IN_F`,`P_F`, `WS_F`,  `CO2_F_MDS`, `PA_F` are the optimal predictors for `GPP`.
+Their p-values are very low (significant) which means that it is very unlikely that
+the true coefficient of the corresponding predictor is actually zero.
+Their standard errors are very small but we have to keep in mind that they *must be compared to the estimate*. We see that the estimates of `Intercept`, and the predictors
+added at a late stage are the most uncertain ones.
+
