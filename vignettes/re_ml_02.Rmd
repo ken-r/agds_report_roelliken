@@ -1,0 +1,135 @@
+---
+title: "Report Exercise Chapter 10"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r message = FALSE}
+library(tidyverse)
+library(recipes)
+library(caret)
+library(recipes)
+library(rsample)
+```
+
+Let's start with some copy-pasted code from the tutorial to set up the data.
+```{r message = FALSE}
+source(here::here("R", "prepare_df.R"))
+
+daily_fluxes_dav <- prepare_df(here::here("data", "FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv"))
+daily_fluxes_lae <- prepare_df(here::here("data", "FLX_CH-Lae_FLUXNET2015_FULLSET_DD_2004-2014_1-4.csv"))
+```
+
+Now we create the training/test splits
+```{r}
+# Data splitting
+set.seed(123)  # for reproducibility
+split_dav <- rsample::initial_split(daily_fluxes_dav, prop = 0.8, strata = "VPD_F")
+daily_fluxes_dav_train <- rsample::training(split_dav)
+daily_fluxes_dav_test <- rsample::testing(split_dav)
+
+# The same model formulation is in the previous chapter
+pp_dav <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+                      data = daily_fluxes_dav_train) |> 
+  recipes::step_center(all_numeric(), -all_outcomes()) |>
+  recipes::step_scale(all_numeric(), -all_outcomes())
+
+split_lae <- rsample::initial_split(daily_fluxes_lae, prop = 0.8, strata = "VPD_F")
+daily_fluxes_lae_train <- rsample::training(split_lae)
+daily_fluxes_lae_test <- rsample::testing(split_lae)
+
+# The same model formulation is in the previous chapter
+pp_lae <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
+                      data = daily_fluxes_lae_train) |> 
+  recipes::step_center(all_numeric(), -all_outcomes()) |>
+  recipes::step_scale(all_numeric(), -all_outcomes())
+```
+
+## Tuning k
+We use the code from the exercises from chapter 10.
+```{r eval = FALSE}
+# eval set to FALSE because it takes long to run
+# TODO: Set eval to TRUE
+mod_dav <- caret::train(pp_dav, 
+                    data = daily_fluxes_dav_train |> drop_na(), 
+                    method = "knn",
+                    trControl = caret::trainControl(method = "cv", 
+                                                    number = 60
+                                                    ),
+                    tuneGrid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100)),
+                    metric = "MAE"
+                    )
+
+# data frame containing metrics on validation set by fold
+metrics_byfold_dav <- mod_dav$resample
+
+# MAE on test set
+daily_fluxes_dav_test <- daily_fluxes_dav_test |> 
+  drop_na() %>%  # use magrittr-pipe here for the dot evaluation
+  mutate(fitted =  predict(mod_dav, newdata = .))  
+
+mae_test <- mean(abs(daily_fluxes_dav_test$fitted - daily_fluxes_dav_test$GPP_NT_VUT_REF))
+```
+
+```{r eval = FALSE}
+mod_lae <- caret::train(pp_lae, 
+                    data = daily_fluxes_lae_train |> drop_na(), 
+                    method = "knn",
+                    trControl = caret::trainControl(method = "cv", 
+                                                    number = 60
+                                                    ),
+                    tuneGrid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100)),
+                    metric = "MAE"
+                    )
+
+# data frame containing metrics on validation set by fold
+metrics_byfold_lae <- mod_lae$resample
+
+# MAE on test set
+daily_fluxes_lae_test <- daily_fluxes_lae_test |> 
+  drop_na() %>%  # use magrittr-pipe here for the dot evaluation
+  mutate(fitted =  predict(mod_lae, newdata = .))  
+
+mae_test <- mean(abs(daily_fluxes_lae_test$fitted - daily_fluxes_lae_test$GPP_NT_VUT_REF))
+```
+
+Proceed as follows:
+
+## Set aside 20% of the data of each site for testing.
+    
+## Compare within-site predictions and across-site predictions on the test set for both sites, considering different metrics. For across-site predictions, make sure to implement a train and test setup that enables a true out-of-sample prediction test.
+
+
+## Train a single model with training data pooled from both sites and predict with this single model on the test data of both sites. How do the model metrics on the test set compare to the true out-of-sample setup above? Interpret differences. Is it a valid approach to perform model training like this? Use your knowledge about structure in the data and its relevance for the model training setup.
+
+## Get information about the characteristics of the two sites. What are the differences in terms of climate, vegetation, altitude, etc. between the Davos and Laegern sites? Interpret biases of the out-of-sample predictions with a view to the site characteristics.
+
+### Davos
+ENF (Evergreen Needleleaf Forests: Lands dominated by woody vegetation with a percent cover >60% and height exceeding 2 meters. Almost all trees remain green all year. Canopy is never without green foliage.)
+- Climate: 
+- Vegetation: Needleleaf forest, almost all trees remain green throughout the year
+- Altitude: 1639 meters above sea level
+- Mean annual precipation: 1062 mm
+- Mean annual temperature: 2.8 °C
+
+### Laegern
+MF (Mixed Forests: Lands dominated by trees with a percent cover >60% and height exceeding 2 meters. Consists of tree communities with interspersed mixtures or mosaics of the other four forest types. None of the forest types exceeds 60% of landscape.) 
+- Climate: 
+- Vegetation: Needleleaf forest, almost all trees remain green throughout the year
+- Altitude: 689 meters above sea level
+- Mean annual precipation: 1100 mm
+- Mean annual temperature: 8.3 °C
+
+There are some significant differences in terms of temperature, altitude and vegetation.
+So if we simply put all the data together and handle it as a single data set, it will be
+biased.
+
+```{r}
+summary(daily_fluxes_dav)
+```
+
+```{r}
+summary(daily_fluxes_lae)
+```
+
+

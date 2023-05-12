@@ -1,5 +1,5 @@
-prepare_df <- function() {
-  df <- readr::read_csv(here::here("data", "FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv")) |>  
+prepare_df <- function(file_path) {
+  df <- readr::read_csv(file_path) |>  
     
     # select only the variables we are interested in
     dplyr::select(TIMESTAMP,

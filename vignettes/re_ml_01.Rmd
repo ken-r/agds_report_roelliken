@@ -22,7 +22,7 @@ separate `.R` script in the `/R` directory.
 ```{r message = FALSE}
 source(here::here("R", "prepare_df.R"))
 
-daily_fluxes <- prepare_df()
+daily_fluxes <- prepare_df(here::here("data", "FLX_CH-Dav_FLUXNET2015_FULLSET_DD_1997-2014_1-3.csv"))
 daily_fluxes |> head()
 ```
 
