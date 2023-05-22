@@ -1,0 +1,18 @@
+---
+title: 'Collaborative Work'
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+I collaborated with Sina Wermelinger.
+
+
+## Person 1
+I was Person 1 [here](https://github.com/ken-r/collaboration_2).
+
+**Note**: I unintentionally created and pushed the new file for the step 
+"Person 1 - Add a new file to your own project, and update the GitHub project."
+too early (before merging the pull request), that's why I did it again after the PR.
+
+## Person 2
+I was Person 2 [here](https://github.com/Sinamariiaa/collaboration).
