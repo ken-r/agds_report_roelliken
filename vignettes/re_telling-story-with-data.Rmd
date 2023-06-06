@@ -8,7 +8,7 @@ editor_options:
 # Setup and first thoughts
 At first, let's load the necessary libraries and take a look at the data. From the documentation we see that it is about New York air quality measurements from May to September 1973 (measured daily).
 The different variables were *measured at different places*, for example `Ozone` at Roosevelt Island, `Solar.R` at Central Park.
-For us, it is not so convenient to work with 'mph' and 'degrees F', so we convert it to 'kmph' and 'degrees C'. For this conversion we use the package `{weathermetrics}`.
+For us, it is not so convenient to work with 'mph' and 'degrees F', so we convert it to 'kmph' and 'degrees C'. For this conversion we use the package {weathermetrics}.
 
 
 ```{r message=FALSE}
@@ -32,7 +32,7 @@ visdat::vis_miss(
 
 Unfortunately, 24% of the rows have no `Ozone` value and 5% have no `Solar.R` value.
 We also see that most of the missing values are between row 25 and row 70.
-This decreases robustness of the analysis, especially for the months of June and early July.
+This decreases robustness of the analysis, especially for the month June and early July.
 
 We convert the units and set the `Month`, `Day` as factors. Note that this unit conversion creates some floating point imprecision.
 
@@ -55,7 +55,7 @@ Why?
 A higher temperature is caused by the incoming sunlight, thus a higher temperature should increase the ozone concentration.
 For the same reason an increase in solar radiation should lead to an increase in ozone concentration.
 
-In contrast more wind should lead to a decrease in ozone concentration because generally in a city we expect a higher ozone concentration than in more green area / ocean. So with more wind, more ozone will be outgoing than incoming.
+In contrast, more wind should lead to a decrease in ozone concentration because generally in a city we expect a higher ozone concentration than in more green area / ocean. So with more wind, more ozone will be outgoing than incoming.
 
 ## Testing hypothesis
 We are now interested in showing the relation between `Ozone` and the other covariates.
@@ -73,6 +73,7 @@ plot
 ```
 
 We see that ozone peaks in the summer months July and August. It seems reasonable that this is due to more sunlight and also higher temperature.
+
 ```{r}
 plot <- ggplot(
   data = airquality,
@@ -85,4 +86,55 @@ plot <- ggplot(
 plot
 ```
 
-As expected the temperatures by month boxplot looks very similar to the one before.
+As expected, the temperatures by month boxplot looks very similar to the ozone by month boxplot.
+
+Let us analyze two linear models with just one predictor for `Ozone`.
+
+```{r}
+plot_temp <- ggplot(
+  airquality,
+  aes(Temp_C, Ozone),
+) +
+  geom_point(na.rm = TRUE) +
+  geom_smooth(formula = y ~ x, method = "lm", color = "red", se = F, na.rm = TRUE) +
+  labs(x = "Temperature (°C)",
+       y = "Ozone Concentration (ppb)",
+       title = "Linear model temperature")
+
+plot_wind <- ggplot(
+  airquality,
+  aes(Wind_kmh, Ozone),
+) +
+  geom_point(na.rm = TRUE) +
+  geom_smooth(formula = y ~ x, method = "lm", color = "red", se = F, na.rm = TRUE) +
+  labs(x = "Wind speed (km/h)",
+       y = "Ozone Concentration (ppb)",
+       title = "Linear model wind speed"
+       )
+
+cowplot::plot_grid(plot_temp, plot_wind, nrow = 2)
+```
+
+We see that the linear models show a slope that we expected (positive for temperature and negative for wind speed). However, the model is too simple and does not capture the full relationship. With variable transformation, it could probably be improved but we did not cover it really until now, so let us keep the linear model but use multiple predictors.
+
+```{r}
+x <- c("Temp_C", "Solar.R", "Wind_kmh")
+y <- "Ozone"
+
+lin_mod <- lm(
+  reformulate(x, y),
+  data = airquality,
+  na.action = na.omit,
+)
+
+lin_mod |> summary()
+```
+
+**Comment**
+The coefficients have the sign that we expected and the p-value is also very small. So it is very unlikely that the variables have no true impact on `Ozone`.
+
+The $R^2$ tells us that approximately 60 \% of the variability in `Ozone` can be explained by `Wind_kmh`, `Temp_C` and `Solar.R`.
+
+
+## Conclusion
+The data confirmed our initial hypotheses that a higher temperature and solar radiation level generally increase the ozone concentration in New York. On the other hand, a higher wind speed decreases the ozone concentration in the city. However, it was difficult to get some robust results / models for `Ozone` because we are given so little data $\approx 150$ rows and many rows contain `NA` values. Also the data was measured 50 years ago and only in a single year (1973) which is not ideal.
