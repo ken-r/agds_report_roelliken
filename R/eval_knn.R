@@ -2,7 +2,8 @@
 eval_knn <- function(k, df_train, df_test){
   pp <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
                         data = df_train) |> 
-    recipes::step_BoxCox(recipes::all_predictors(), -TA_F) |> # TODO: Check why we should try to boxcox transform TA_F -> it also contains negative values!
+    # Dont apply boxcox for TA_F because it also contains negative values
+    recipes::step_BoxCox(recipes::all_predictors(), -TA_F) |>
     recipes::step_center(recipes::all_numeric(), -recipes::all_outcomes()) |>
     recipes::step_scale(recipes::all_numeric(), -recipes::all_outcomes())
   

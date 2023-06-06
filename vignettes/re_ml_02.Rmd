@@ -141,8 +141,58 @@ rmse_lae_acrosssite
   - in-site: quite good, but worse than Davos (probably due to less data)
   - across-site: worse than Davos across-site and also Laegern in-site.
 
-TODO
-## Interpret biases of the out-of-sample predictions with a view to the site characteristics.
+
+```{r}
+plot_dav_across <- ggplot(
+  daily_fluxes_lae_test,
+  aes(x = GPP_NT_VUT_REF, y = fit_dav_lae)
+) + 
+  geom_point() +
+  labs(x = "GPP",
+       y = "Predicted GPP",
+       title = "Davos model across-site") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted",
+              linewidth = 2, color = "red")
+
+plot_lae_across <- ggplot(
+  daily_fluxes_dav_test,
+  aes(x = GPP_NT_VUT_REF, y = fit_lae_mae)
+) + 
+  geom_point() +
+  labs(x = "GPP",
+       y = "Predicted GPP",
+       title = "Laegern model across-site") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted",
+              linewidth = 2, color = "red")
+
+cowplot::plot_grid(plot_dav_across, plot_lae_across, nrow = 2)
+```
+
+## Biases
+We see that the predictions on Laegern data from the model trained on Davos data are generally *too low*, whereas the predictions on Davos data from the model trained on Laegern data are generally *too high*. Let us investigate it further by taking a look at the distribution of `GPP` at the two places.
+
+```{r}
+gpp_dav <- tibble(
+  PLACE = "Davos",
+  GPP_NT_VUT_REF = daily_fluxes_dav$GPP_NT_VUT_REF
+)
+
+gpp_lae <- tibble(
+  PLACE = "Laegern",
+  GPP_NT_VUT_REF = daily_fluxes_lae$GPP_NT_VUT_REF
+)
+
+gpp_data <- rbind(gpp_dav, gpp_lae)
+
+ggplot(gpp_data, aes(x = PLACE, y = GPP_NT_VUT_REF, fill = PLACE)) +
+  geom_boxplot(na.rm = TRUE) +
+  labs(title = "GPP distribution comparison between Davos and Laegern",
+       x = "Place",
+       y = "GPP",
+       fill = "Place")
+```
+
+We see that the `GPP` is significantly lower in Davos than in Laegern, so the if the model is trained on Davos data, it leads to generally lower `GPP` predictions. So it will predict values that are too low for Laegern data which is exactly the bias that we observed above.
 
 ## Climate analysis
 ### Davos
@@ -167,16 +217,7 @@ MF (Mixed Forests: Lands dominated by trees with a percent cover >60% and height
 
 ### Comparison
 There are some significant differences in terms of temperature, altitude and vegetation.
-So if we simply put all the data together and handle it as a single data set, it will be biased. That's also what we observe when we take a look at the different variables (distribution):
-
-```{r}
-summary(daily_fluxes_dav)
-```
-
-```{r}
-summary(daily_fluxes_lae)
-```
-TODO: Add comment
+So if we simply put all the data together and handle it as a single data set, it will not be accurate.
 
 Nevertheless, let us set up a data frame that contains all the observations of both Davos and Laegern.
 ```{r}

@@ -222,7 +222,8 @@ pp <- daily_fluxes_train |> recipe_daily_fluxes()
 
 metrics_train <- tibble(k = numeric(), R2 = numeric(), MAE = numeric())
 metrics_test <- tibble(k = numeric(), R2 = numeric(), MAE = numeric())
-k_vec <- c(seq(1, 5, by = 1), seq(8, 20, by = 2), seq(25, 50, 5), seq(100, 400, 100), 499) # TODO: Check why higher k throws "too many ties in knn" error.
+k_vec <- c(seq(1, 5, by = 1), seq(8, 20, by = 2), seq(25, 50, 5), seq(100, 400, 100), 499)
+
 for(k in k_vec) {
   mod_knn <- caret::train(
   pp, 

@@ -35,10 +35,7 @@ Now we can start with `p = 1`:
 ```{r}
 # Set up a tibble that contains the results (metrics) for the different models
 metrics <- tibble(predictor = character(), R2 = numeric(), AIC = numeric())
-# pred <- "TA_F"
-# linmod <- lm(as.formula(paste("GPP_NT_VUT_REF ~ ", paste(pred))), data = half_hourly_fluxes)
-# 
-# linmod |> summary()
+
 for (pred in predictors) {
   # Create formula dynamically with reformulate(...)
   linmod <- lm(reformulate(pred, target), data = half_hourly_fluxes)
