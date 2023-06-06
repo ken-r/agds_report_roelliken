@@ -4,6 +4,12 @@ output: html_document
 editor_options: 
   chunk_output_type: console
 ---
+## Source
+The data was taken from 
+
+*Groenigen, Kees Jan van, Xuan Qi, Craig W. Osenberg, Yiqi Luo, and Bruce A. Hungate. "Faster Decomposition Under Increased Atmospheric CO2 Limits Soil Carbon Storage." Science 344, no. 6183 (May 2, 2014): 508--9. <https://doi.org/10.1126/science.1249534>.*
+
+
 ## Manually cleaning the data
 Looks quite messy with missing values (`Experiment`) and many variables are not machine-readable like `Depth` and especially `Sample date`.
 
@@ -61,7 +67,7 @@ The log response ratio is calculated as described in the exercise task.
 ```{r}
 soc_per_experiment <- soil_organic_carbon |>
   group_by(EXP) |>
-  summarise(# How many samples for the whole experiment (both concentration
+  summarise(# How many samples for the whole experiment (both concentrations
             # separately).
             EXP_N_AMB_CO2 = sum(N_AMB_CO2),
             EXP_N_INC_CO2 = sum(N_INC_CO2),
