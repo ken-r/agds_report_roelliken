@@ -3,6 +3,7 @@ title: 'Cleaning data'
 output: html_document
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {rmarkdown::render(input, output_dir = "../html")})
 ---
 ## Source
 The data was taken from 

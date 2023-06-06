@@ -3,6 +3,7 @@ title: 'RE: Stepwise Forward Regression'
 output: html_document
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {rmarkdown::render(input, output_dir = "../html")})
 ---
 # Setup
 Let us load the {tidyverse} package for the whole session.

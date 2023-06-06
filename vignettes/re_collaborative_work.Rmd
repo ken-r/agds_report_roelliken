@@ -3,6 +3,7 @@ title: 'Collaborative Work'
 output: html_document
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {rmarkdown::render(input, output_dir = "../html")})
 ---
 I collaborated with Sina Wermelinger.
 
