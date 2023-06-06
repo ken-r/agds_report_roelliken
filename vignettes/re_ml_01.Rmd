@@ -13,7 +13,6 @@ For convenience we load again some packages.
 library(tidyverse)
 library(recipes)
 library(caret)
-library(recipes)
 library(rsample)
 ```
 
@@ -27,18 +26,15 @@ daily_fluxes |> head()
 ```
 
 ```{r}
+source(here::here("R", "recipe_daily_fluxes.R"))
+
 # Data splitting
 set.seed(1982)  # for reproducibility
 split <- rsample::initial_split(daily_fluxes, prop = 0.7, strata = "VPD_F")
 daily_fluxes_train <- rsample::training(split)
 daily_fluxes_test <- rsample::testing(split)
 
-# Model and pre-processing formulation, use all variables but LW_IN_F
-pp <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
-                      data = daily_fluxes_train |> drop_na()) |> 
-  recipes::step_BoxCox(recipes::all_predictors(), -TA_F) |> # TODO: Check why we should try to boxcox transform TA_F -> it also contains negative values!
-  recipes::step_center(recipes::all_numeric(), -recipes::all_outcomes()) |>
-  recipes::step_scale(recipes::all_numeric(), -recipes::all_outcomes())
+pp <- recipe_daily_fluxes(daily_fluxes_train |> drop_na())
 
 # Fit linear regression model
 mod_lm <- caret::train(
@@ -73,6 +69,7 @@ eval_model(mod = mod_knn, df_train = daily_fluxes_train, df_test = daily_fluxes_
 # Interpretation
 
 ## Why is the difference between the evaluation on the training and the test set larger for the KNN model than for the linear regression model?
+
 The linear model is very simple and has only two parameters that are used for prediction:
 slope and intercept.
 Thanks to its simplicity, it often leads to similar performances on data used for training and on new data as we observed here.
@@ -80,9 +77,11 @@ On the other hand, the KNN model is more flexible because it takes the average p
 It's outcome depends heavily on the data that was used for training thus its performance often decreases quite a bit on new data (like the test set).
 
 ## Why is the does the evaluation on the test set indicate a better model performance of the KNN model than the linear regression model?
+
 Even though the $R^2$ dropped more compared to the linear model it is still higher on the test set than the $R^2$ value of the linear model (0.63 vs. 0.60)
 
 ## How would you position the KNN and the linear regression model along the spectrum of the bias-variance trade-off?
+
 KNN:
 - high variance
 - low bias
@@ -93,9 +92,93 @@ Linear regression:
 
 Above observations in the previous two questions agree with this.
 
+## Visualize temporal variations
+At first, we need to add the predictions to the daily fluxes dataset.
+```{r}
+daily_fluxes_pred_data <- daily_fluxes |> 
+  drop_na()
+
+daily_fluxes_pred_data <- daily_fluxes_pred_data |> 
+  mutate(
+    pred_lm = predict(mod_lm, newdata = daily_fluxes_pred_data),
+    pred_knn = predict(mod_knn, newdata = daily_fluxes_pred_data)
+  )
+```
+
+```{r}
+# Observed data plot
+gpp_obs <- ggplot(
+  data = daily_fluxes_pred_data,
+  aes(x = TIMESTAMP, y = GPP_NT_VUT_REF)) +
+  geom_line() +
+  ylim(-1, 10) +
+  labs(title = "Observed data",
+       x = "Date",
+       y = expression(paste("GPP (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
+       )
+nrow(daily_fluxes_pred_data)
+nrow(daily_fluxes_pred_data |> drop_na())
+# Linear model prediction plot
+gpp_lm <- ggplot(
+  data = daily_fluxes_pred_data,
+  aes(x = TIMESTAMP, y = pred_lm)) +
+  geom_line() +
+  ylim(-1, 10) +
+  labs(title = "Linear model predictions",
+       x = "Date",
+       y = expression(paste("GPP (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
+  )
+
+# Residual plot LM
+res_lm <- ggplot(
+  data = daily_fluxes_pred_data,
+  aes(x = TIMESTAMP, y = GPP_NT_VUT_REF - pred_lm)) +
+  geom_line() +
+  ylim(-6, 7.5) +
+  geom_hline(yintercept = 0, linetype = 'dashed', color = "green") +
+  labs(title = "Linear model residuals", 
+       x = "Date", 
+       y = expression(paste("Residuals (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
+       )
+
+# KNN prediction plot
+gpp_knn <- ggplot(
+  data = daily_fluxes_pred_data,
+  aes(x = TIMESTAMP, y = pred_knn)) +
+  geom_line() +
+  ylim(-1, 10) +
+  labs(title = "KNN model predictions",
+       x = "Date",
+       y = expression(paste("GPP (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
+       )
+
+# Residual plot LM
+res_knn <- ggplot(
+  data = daily_fluxes_pred_data,
+  aes(x = TIMESTAMP, y = GPP_NT_VUT_REF - pred_knn)) +
+  geom_line() +
+  ylim(-6, 7.5) +
+  geom_hline(yintercept = 0, linetype = 'dashed', color = "green") +
+  labs(title = "KNN model residuals", 
+       x = "Date", 
+       y = expression(paste("Residuals (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
+       )
+
+cowplot::plot_grid(gpp_obs, gpp_lm, res_lm, gpp_obs, gpp_knn, res_knn, nrow = 3, ncol = 2, byrow = FALSE)
+```
+
+**Comment**
+We see that a lot of data from 2005 is missing.
+Otherwise the observed and modeled plots look very similar. Also the linear model and knn predictions plot look alike.
+
+### Further analysis
+In order to compare the models, one could take a look at the average GPP level per day (from 1. January to 31. December) and look whether there are differences in the GPP level predicted by LM/KNN. In such a plot, the differences should be easier to spot than on a plot that contains all dates between 1997 and 2015.
+Due to time reasons, we don't do it here.
+
+
 # The role of k
 
-## k approaches N
+## $k \to N$
 If $k$ approaches $N$, every prediction will be made by averaging over (almost) all training target values, because the $k$ nearest neighbors will be (almost) all the training observations.
 
 ### Training
@@ -109,7 +192,7 @@ $$\text{MAE} = \frac{1}{n}\sum_i \lvert Y_i - \bar Y\rvert,$$
 I expect that the $R^2$ value will decrease, but not necessarily to exactly zero, it could be even decrease to something lower than zero.
 I also expect that the $\text{MAE}$ increases because the model will make less accurate predictions.
 
-## k approaches 1
+## $k \to 1$
 On the other hand if $k$ approaches $1$ every prediction will be made by averaging over (almost) 1 training target value, because the $k \to 1$ nearest neighbors will be the training observations that had the closest covariate values compared to the one we want to predict, so it will almost surely be the  
 
 ### Training
@@ -124,22 +207,21 @@ I expect that the $R^2$ will decrease, because the model will be fitted to the t
 For the MAE I think it increases because it makes less accurate predictions. 
 
 ## Hypothesis testing
+We will work with a new train and test split where we already remove NAN values before splitting (for simplicity)
 ```{r}
-set.seed(1)  # for reproducibility
+source(here::here("R", "eval_model_metrics.R"))
+
+set.seed(06062023)  # for reproducibility
 split <- rsample::initial_split(daily_fluxes |> drop_na(), prop = 0.7, strata = "VPD_F")
 daily_fluxes_train <- rsample::training(split)
 daily_fluxes_test <- rsample::testing(split)
 
 # Model and pre-processing formulation, use all variables but LW_IN_F
-pp <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
-                      data = daily_fluxes_train) |> 
-  recipes::step_BoxCox(recipes::all_predictors(), -TA_F) |> # TODO: Check why we should try to boxcox transform TA_F -> it also contains negative values!
-  recipes::step_center(recipes::all_numeric(), -recipes::all_outcomes()) |>
-  recipes::step_scale(recipes::all_numeric(), -recipes::all_outcomes())
+pp <- daily_fluxes_train |> recipe_daily_fluxes()
 
 metrics_train <- tibble(k = numeric(), R2 = numeric(), MAE = numeric())
 metrics_test <- tibble(k = numeric(), R2 = numeric(), MAE = numeric())
-k_vec <- c(seq(1, 5, by = 1), seq(8, 20, by = 3), seq(30, 100, 10)) # TODO: Check why higher k throws "too many ties in knn" error.
+k_vec <- c(seq(1, 5, by = 1), seq(8, 20, by = 2), seq(25, 50, 5), seq(100, 400, 100), 499) # TODO: Check why higher k throws "too many ties in knn" error.
 for(k in k_vec) {
   mod_knn <- caret::train(
   pp, 
@@ -147,33 +229,50 @@ for(k in k_vec) {
   method = "knn",
   trControl = caret::trainControl(method = "none"),
   tuneGrid = expand.grid(k = k),
-  metric = "RMSE"
+  metric = "MAE"
 )
-  
-  daily_fluxes_train$train_predict <- predict(mod_knn, newdata = daily_fluxes_train)
-  daily_fluxes_test$test_predict <- predict(mod_knn, newdata = daily_fluxes_test)
-  m_train <- daily_fluxes_train |> yardstick::metrics(GPP_NT_VUT_REF, train_predict)
-  m_test <- daily_fluxes_test |> yardstick::metrics(GPP_NT_VUT_REF, test_predict)
-  rsq_train <- m_train |> 
-    filter(.metric == "rsq") |> 
-    pull(.estimate)
-  rsq_test <- m_test |> 
-    filter(.metric == "rsq") |> 
-    pull(.estimate)
-  
-  mae_train <- m_train |> 
-    filter(.metric == "mae") |> 
-    pull(.estimate)
-  mae_test <- m_test |> 
-    filter(.metric == "mae") |> 
-    pull(.estimate)
-  metrics_train <- metrics_train |> add_row(k = k, R2 = rsq_train, MAE = mae_train)
-  metrics_test <- metrics_test |> add_row(k = k, R2 = rsq_test, MAE = mae_test)
+
+  train_performance <- eval_model_metrics(mod_knn, daily_fluxes_train)
+  test_performance <- eval_model_metrics(mod_knn, daily_fluxes_test)
+  metrics_train <- metrics_train |> add_row(k = k, R2 = train_performance$R2, MAE = train_performance$MAE)
+  metrics_test <- metrics_test |> add_row(k = k, R2 = test_performance$R2, MAE = test_performance$MAE)
 }
 
 metrics_train
 metrics_test
+metrics_test |> ggplot(aes(x = factor(k_vec), y = MAE)) +
+  geom_point() +
+  labs(x = "k", y = "MAE") +
+  ggtitle("MAE on test set for different k")
 ```
 
-### Comment
-The prediction were quite accurate, however I could not increase $k$ really close to $N$ because it lead to an error...
+### Evaluation of $k \to n$
+We did not consider $k = n$ but $k = 499$, whereas the test set has `r nrow(daily_fluxes_test)` observations. 
+```{r}
+metrics_train |> tail(1)
+metrics_test |> tail(1)
+```
+
+**Comment**
+The predictions were quite accurate, however I could not increase $k$ really close to $N$ because it lead to an error "too many ties ...". But I expect that the results are similar but they would be even more extreme when $k$ is closer to $N$.
+
+### Evaluation of $k \to 1$
+```{r}
+metrics_train |> head(1)
+metrics_test |> head(1)
+```
+
+**Comment** As expected, the training performance is perfect, but the test performance
+isn't. The model is overfit.
+
+## Optimal k
+Let's find some optimal k using the function we have created in `/R/eval_knn.R` as described in the task.
+```{r}
+source(here::here("R", "eval_knn.R"))
+
+k_vec <- c(1:30, seq(33, 51, 3))
+mae_test <- k_vec |> sapply(FUN = function(k) eval_knn(k, daily_fluxes_train, daily_fluxes_test))
+opt_k <- k_vec[which.min(mae_test)]
+```
+
+So we see that the optimal k found was `r opt_k`. As expected, it should not be too close to 1 but also not too large.

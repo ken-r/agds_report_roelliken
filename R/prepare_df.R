@@ -22,11 +22,12 @@ prepare_df <- function(file_path) {
     dplyr::mutate(GPP_NT_VUT_REF = ifelse(NEE_VUT_REF_QC < 0.8, NA, GPP_NT_VUT_REF),
                   TA_F           = ifelse(TA_F_QC        < 0.8, NA, TA_F),
                   SW_IN_F        = ifelse(SW_IN_F_QC     < 0.8, NA, SW_IN_F),
-                  LW_IN_F        = ifelse(LW_IN_F_QC     < 0.8, NA, LW_IN_F),
+                  #LW_IN_F        = ifelse(LW_IN_F_QC     < 0.8, NA, LW_IN_F),
                   VPD_F          = ifelse(VPD_F_QC       < 0.8, NA, VPD_F),
-                  PA_F           = ifelse(PA_F_QC        < 0.8, NA, PA_F),
-                  P_F            = ifelse(P_F_QC         < 0.8, NA, P_F),
-                  WS_F           = ifelse(WS_F_QC        < 0.8, NA, WS_F)) |> 
+                  #PA_F           = ifelse(PA_F_QC        < 0.8, NA, PA_F),
+                  #P_F            = ifelse(P_F_QC         < 0.8, NA, P_F),
+                  #WS_F           = ifelse(WS_F_QC        < 0.8, NA, WS_F) 
+                  ) |> 
     
     # drop QC variables (no longer needed)
     dplyr::select(-ends_with("_QC"))

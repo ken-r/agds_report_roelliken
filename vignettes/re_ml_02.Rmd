@@ -1,7 +1,9 @@
 ---
 title: "Report Exercise Chapter 10"
-output: html_document
-editor_options: 
+output:
+  html_document:
+    toc: true
+editor_options:
   chunk_output_type: console
 ---
 ```{r message = FALSE}
@@ -12,7 +14,7 @@ library(recipes)
 library(rsample)
 ```
 
-Let's start with some copy-pasted code from the tutorial to set up the data.
+Let's start with some copy-pasted code from the tutorial (see function `prepare_df`) to set up the data.
 ```{r message = FALSE}
 source(here::here("R", "prepare_df.R"))
 
@@ -22,6 +24,8 @@ daily_fluxes_lae <- prepare_df(here::here("data", "FLX_CH-Lae_FLUXNET2015_FULLSE
 
 Now we create the training/test splits
 ```{r}
+source(here::here("R", "recipe_daily_fluxes.R"))
+
 # Data splitting
 set.seed(123)  # for reproducibility
 split_dav <- rsample::initial_split(daily_fluxes_dav, prop = 0.8, strata = "VPD_F")
@@ -29,83 +33,121 @@ daily_fluxes_dav_train <- rsample::training(split_dav)
 daily_fluxes_dav_test <- rsample::testing(split_dav)
 
 # The same model formulation is in the previous chapter
-pp_dav <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
-                      data = daily_fluxes_dav_train) |> 
-  recipes::step_center(all_numeric(), -all_outcomes()) |>
-  recipes::step_scale(all_numeric(), -all_outcomes())
+pp_dav <- daily_fluxes_dav_train |> recipe_daily_fluxes()
 
 split_lae <- rsample::initial_split(daily_fluxes_lae, prop = 0.8, strata = "VPD_F")
 daily_fluxes_lae_train <- rsample::training(split_lae)
 daily_fluxes_lae_test <- rsample::testing(split_lae)
 
 # The same model formulation is in the previous chapter
-pp_lae <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
-                      data = daily_fluxes_lae_train) |> 
-  recipes::step_center(all_numeric(), -all_outcomes()) |>
-  recipes::step_scale(all_numeric(), -all_outcomes())
+pp_lae <- daily_fluxes_lae_train |> recipe_daily_fluxes()
 ```
 
 ## Tuning k
 We use the code from the exercises from chapter 10.
-```{r eval = FALSE}
-# eval set to FALSE because it takes long to run
-# TODO: Set eval to TRUE
-mod_dav <- caret::train(pp_dav, 
-                    data = daily_fluxes_dav_train |> drop_na(), 
-                    method = "knn",
-                    trControl = caret::trainControl(method = "cv", 
-                                                    number = 60
-                                                    ),
-                    tuneGrid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100)),
-                    metric = "MAE"
-                    )
+To be completely accurate, we train two separate models for assessing the differences with two different metrics: MAE and RMSE
+Most likely, it would not make a large difference if we use MAE for training and then evaluate it on the test set using RMSE but to be completely precise, we do it with separate models.
 
-# data frame containing metrics on validation set by fold
-metrics_byfold_dav <- mod_dav$resample
+```{r}
+source(here::here("R", "knn.R"))
 
-# MAE on test set
+set.seed(31052023)
+
+k_grid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100))
+
+mod_dav_mae <- knn_cv(recipe = pp_dav, 
+                  df_train = daily_fluxes_dav_train |> drop_na(),
+                  k_grid = k_grid,
+                  metric = "MAE")
+
+mod_lae_mae <- knn_cv(recipe = pp_lae,
+                  df_train = daily_fluxes_lae_train |> drop_na(),
+                  k_grid = k_grid,
+                  metric = "MAE")
+
+# Get optimal k for other metrics
+dav_k_rmse <- k_grid$k[which.min(mod_dav_mae$results$RMSE)]
+lae_k_rmse <- k_grid$k[which.min(mod_lae_mae$results$RMSE)]
+
+mod_dav_rmse <- knn(recipe = pp_dav, 
+                  df_train = daily_fluxes_dav_train |> drop_na(),
+                  k = dav_k_rmse)
+
+mod_lae_rmse <- knn(recipe = pp_lae,
+                  df_train = daily_fluxes_lae_train |> drop_na(),
+                  k = lae_k_rmse)
+```
+
+```{r}
+# Add modeled predictions to test set
 daily_fluxes_dav_test <- daily_fluxes_dav_test |> 
   drop_na() %>%  # use magrittr-pipe here for the dot evaluation
-  mutate(fitted =  predict(mod_dav, newdata = .))  
+  mutate(fit_dav_mae = predict(mod_dav_mae, newdata = .),
+         fit_lae_mae = predict(mod_lae_mae, newdata = .),
+         fit_dav_rmse = predict(mod_dav_rmse, newdata = .),
+         fit_lae_rmse = predict(mod_lae_rmse, newdata = .))
 
-mae_test <- mean(abs(daily_fluxes_dav_test$fitted - daily_fluxes_dav_test$GPP_NT_VUT_REF))
-```
-
-```{r eval = FALSE}
-mod_lae <- caret::train(pp_lae, 
-                    data = daily_fluxes_lae_train |> drop_na(), 
-                    method = "knn",
-                    trControl = caret::trainControl(method = "cv", 
-                                                    number = 60
-                                                    ),
-                    tuneGrid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100)),
-                    metric = "MAE"
-                    )
-
-# data frame containing metrics on validation set by fold
-metrics_byfold_lae <- mod_lae$resample
-
-# MAE on test set
+# Add modeled predictions to test set
 daily_fluxes_lae_test <- daily_fluxes_lae_test |> 
   drop_na() %>%  # use magrittr-pipe here for the dot evaluation
-  mutate(fitted =  predict(mod_lae, newdata = .))  
-
-mae_test <- mean(abs(daily_fluxes_lae_test$fitted - daily_fluxes_lae_test$GPP_NT_VUT_REF))
+  mutate(fit_lae_mae = predict(mod_lae_mae, newdata = .),
+         fit_dav_mae = predict(mod_dav_mae, newdata = .),
+         fit_lae_rmse = predict(mod_lae_rmse, newdata = .),
+         fit_dav_rmse = predict(mod_dav_rmse, newdata = .))
 ```
 
-Proceed as follows:
+```{r}
+# Calculate in-sample and across-site losses (using caret::MAE, caret::RMSE)
+mae_dav_insite <- MAE(daily_fluxes_dav_test$fit_dav_mae,
+                      daily_fluxes_dav_test$GPP_NT_VUT_REF)
+mae_dav_acrosssite <- MAE(daily_fluxes_lae_test$fit_dav_mae,
+                          daily_fluxes_lae_test$GPP_NT_VUT_REF)
 
-## Set aside 20% of the data of each site for testing.
-    
-## Compare within-site predictions and across-site predictions on the test set for both sites, considering different metrics. For across-site predictions, make sure to implement a train and test setup that enables a true out-of-sample prediction test.
+rmse_dav_insite <- RMSE(daily_fluxes_dav_test$fit_dav_rmse,
+                        daily_fluxes_dav_test$GPP_NT_VUT_REF)
+
+rmse_dav_acrosssite <- RMSE(daily_fluxes_lae_test$fit_dav_rmse,
+                                daily_fluxes_lae_test$GPP_NT_VUT_REF)
 
 
-## Train a single model with training data pooled from both sites and predict with this single model on the test data of both sites. How do the model metrics on the test set compare to the true out-of-sample setup above? Interpret differences. Is it a valid approach to perform model training like this? Use your knowledge about structure in the data and its relevance for the model training setup.
+mae_dav_insite
+mae_dav_acrosssite
+rmse_dav_insite
+rmse_dav_acrosssite
 
-## Get information about the characteristics of the two sites. What are the differences in terms of climate, vegetation, altitude, etc. between the Davos and Laegern sites? Interpret biases of the out-of-sample predictions with a view to the site characteristics.
 
+# Calculate in-site and across-site losses (using caret::MAE, caret::RMSE)
+mae_lae_insite <- MAE(daily_fluxes_lae_test$fit_lae_mae,
+                      daily_fluxes_lae_test$GPP_NT_VUT_REF)
+mae_lae_acrosssite <- MAE(daily_fluxes_dav_test$fit_lae_mae,
+                          daily_fluxes_dav_test$GPP_NT_VUT_REF)
+
+rmse_lae_insite <- RMSE(daily_fluxes_lae_test$fit_lae_rmse,
+                        daily_fluxes_lae_test$GPP_NT_VUT_REF)
+rmse_lae_acrosssite <- RMSE(daily_fluxes_dav_test$fit_lae_rmse,                               daily_fluxes_dav_test$GPP_NT_VUT_REF)
+
+mae_lae_insite
+mae_lae_acrosssite
+rmse_lae_insite
+rmse_lae_acrosssite
+```
+
+**Comments**
+- Model trained on Davos data: more data than Laegern
+  - in-site:
+  - across-site: much worse than in-site, better than across-site Laegern
+- Model trained on Laegern data: less data than Davos
+  - in-site: quite good, but worse than Davos (probably due to less data)
+  - across-site: worse than Davos across-site and also Laegern in-site.
+
+TODO
+## Interpret biases of the out-of-sample predictions with a view to the site characteristics.
+
+## Climate analysis
 ### Davos
+Information taken from [here](https://fluxnet.org/sites/siteinfo/CH-Dav).
 ENF (Evergreen Needleleaf Forests: Lands dominated by woody vegetation with a percent cover >60% and height exceeding 2 meters. Almost all trees remain green all year. Canopy is never without green foliage.)
+
 - Climate: 
 - Vegetation: Needleleaf forest, almost all trees remain green throughout the year
 - Altitude: 1639 meters above sea level
@@ -113,16 +155,18 @@ ENF (Evergreen Needleleaf Forests: Lands dominated by woody vegetation with a pe
 - Mean annual temperature: 2.8 °C
 
 ### Laegern
-MF (Mixed Forests: Lands dominated by trees with a percent cover >60% and height exceeding 2 meters. Consists of tree communities with interspersed mixtures or mosaics of the other four forest types. None of the forest types exceeds 60% of landscape.) 
+Information taken from [here](https://fluxnet.org/sites/siteinfo/CH-Lae)
+MF (Mixed Forests: Lands dominated by trees with a percent cover >60% and height exceeding 2 meters. Consists of tree communities with interspersed mixtures or mosaics of the other four forest types. None of the forest types exceeds 60% of landscape.)
+
 - Climate: 
 - Vegetation: Needleleaf forest, almost all trees remain green throughout the year
 - Altitude: 689 meters above sea level
 - Mean annual precipation: 1100 mm
 - Mean annual temperature: 8.3 °C
 
+### Comparison
 There are some significant differences in terms of temperature, altitude and vegetation.
-So if we simply put all the data together and handle it as a single data set, it will be
-biased.
+So if we simply put all the data together and handle it as a single data set, it will be biased. That's also what we observe when we take a look at the different variables (distribution):
 
 ```{r}
 summary(daily_fluxes_dav)
@@ -131,5 +175,53 @@ summary(daily_fluxes_dav)
 ```{r}
 summary(daily_fluxes_lae)
 ```
+TODO: Add comment
+
+Nevertheless, let us set up a data frame that contains all the observations of both Davos and Laegern.
+```{r}
+daily_fluxes_full <- bind_rows(daily_fluxes_dav, daily_fluxes_lae)
+```
+
+```{r}
+# Combine training sets of Davos and Laegern to a single training set
+daily_fluxes_train <- bind_rows(daily_fluxes_dav_train,
+                                daily_fluxes_lae_train)
+daily_fluxes_test <- bind_rows(daily_fluxes_dav_test,
+                               daily_fluxes_lae_test)
+
+# The same model formulation is in the previous chapter
+pp <- daily_fluxes_train |> recipe_daily_fluxes()
+```
 
 
+```{r}
+k_grid = data.frame(k = c(2, 5, 10, 15, 20, 25, 30, 35, 40, 60, 100))
+mod_full_mae <- knn_cv(recipe = pp,
+                  df_train = daily_fluxes_train |> drop_na(),
+                  k_grid = k_grid,
+                  metric = "MAE")
+```
+
+```{r}
+# Evaluate model on Davos test data 
+daily_fluxes_dav_test <- daily_fluxes_dav_test |> 
+  drop_na() %>%  # use magrittr-pipe here for the dot evaluation
+  mutate(fit_full = predict(mod_full_mae, newdata = .))
+
+# Evaluate model on Laegern test data 
+daily_fluxes_lae_test <- daily_fluxes_lae_test |> 
+  drop_na() %>% 
+  mutate(fit_full = predict(mod_full_mae, newdata = .))
+
+(full_test_dav <- MAE(daily_fluxes_dav_test$fit_full,
+                      daily_fluxes_dav_test$GPP_NT_VUT_REF))
+
+(full_test_lae <- MAE(daily_fluxes_lae_test$fit_full,
+                      daily_fluxes_lae_test$GPP_NT_VUT_REF))
+```
+
+**Comment**
+We see that the MAE is lower than for the across-site predictions before, but it is higher than the MAE for the in-site predictions.
+The underlying climate is too different for these two places. That's why it does not make sense to make a model that was trained on the data of both places together. We have to make separate models to make accurate predictions.
+
+If we really want to train the model using the data of both (or even more places) it could make sense to add a new variable (categorical) to the data indicating the climate at this specific place where the meteorological variables were measured. So places with similar climate would have the same category. Such a model would be more complex but also more accurate.
