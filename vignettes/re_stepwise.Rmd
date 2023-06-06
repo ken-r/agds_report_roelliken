@@ -4,7 +4,7 @@ output: html_document
 editor_options: 
   chunk_output_type: console
 ---
-
+# Setup
 Let us load the {tidyverse} package for the whole session.
 ```{r message = FALSE}
 library(tidyverse)
@@ -29,6 +29,7 @@ predictors <- predictors |> setdiff(c("siteid", "TIMESTAMP", target))
 predictors
 ```
 
+# Evaluation of all bivariate models
 Now we can start with `p = 1`:
 ```{r}
 # Set up a tibble that contains the results (metrics) for the different models
@@ -55,8 +56,10 @@ best_mod <- lm(reformulate(optimal_pred, target),
 
 summary(best_mod)
 ```
-We see that `PPFD_IN` lead to the best performance.
-However, we also see that the AIC is very big, and we could probably improve the model by increasing `p`, so by choosing more than just one single predictor.
+We see that `PPFD_IN` (incoming photosynthetic photon flux density) lead to the best performance. This is not surprising because our aim is to predict `GPP` (gross primary production). `PPFD_IN` is the number of incoming photons in the 400-700 nm spectral range (per square meter per second) that plants are able to use for photosyntesis [source](https://en.wikipedia.org/wiki/Photosynthetically_active_radiation).
+
+
+We also see that the AIC is very big, and we could probably improve the model by increasing `p`, so by choosing more than just one single predictor.
 
 Let us visualize it.
 ```{r}
@@ -70,8 +73,10 @@ half_hourly_fluxes |>  ggplot(aes(x = PPFD_IN, y = GPP_NT_VUT_REF)) +
 **Comment**
 The line matches the data to the most extent, but as we have so much variability in `GPP` for any value of `PPFD` between 0 and 750, it is not possible to accurately predict the `GPP` using only `PPFD`.
 For values of `PPFD` higher than 800, this model predicts a too high value of `GPP`.
+We have $R^2 \approx 0.45$ and $\text{AIC} \approx 29700$ which can surely be improved by adding more predictors.
 
-Now let us implement the complete stepwise linear regression algorithm.
+# Complete stepwise forward regression
+Now let us implement the complete stepwise forward regression algorithm.
 We can basically copy-paste the code from above and use it for our inner loop.
 Only slight modifications are necessary to make sure that we only check predictors only if they have not been used so far.
 
@@ -82,7 +87,7 @@ previous_AIC <- Inf
 selected_predictors <- c()
 # Stores the remaining predictors (unsure whether they will be used in final model)
 remaining_predictors <- predictors
-
+optimal_metrics <- tibble(predictor = character(), R2 = numeric(), AIC = numeric())
 for (p in 1:length(predictors)) {
   metrics <- tibble(predictor = character(), R2 = numeric(), AIC = numeric())
   for (pred in remaining_predictors) {
@@ -96,12 +101,14 @@ for (p in 1:length(predictors)) {
   # Find the index (row number) where R2 was the best (highest)
   index_optimal <- which.max(pull(metrics, R2))
   optimal_pred <- remaining_predictors[index_optimal]
-  optimal_metrics <- metrics[index_optimal, ]
+  optimal_pred_metrics <- metrics[index_optimal, ]
+  cat("previous:", previous_AIC, ", now:", optimal_pred_metrics$AIC, "Did not improve\n")
   # If AIC does not improve, we don't add any predictors anymore and stop the algorithm.
-  if (optimal_metrics$AIC >= previous_AIC) {
+  if (optimal_pred_metrics$AIC >= previous_AIC) {
     break
   }
-  previous_AIC <- optimal_metrics$AIC
+  previous_AIC <- optimal_pred_metrics$AIC
+  optimal_metrics <- optimal_metrics |> add_row(optimal_pred_metrics)
   # Add the optimal predictor
   selected_predictors <- append(selected_predictors, optimal_pred)
   # Remove the optimal predictor found in this step from the available predictors
@@ -116,8 +123,27 @@ best_model |> summary()
 
 **Comment**
 Stepwise linear regression suggests that `PPFD_IN`, `LW_IN_F`, `VPD_F`, `TA_F_MDS`, `SW_IN_F`,`P_F`, `WS_F`,  `CO2_F_MDS`, `PA_F` are the optimal predictors for `GPP`.
-Their p-values are very low (significant) which means that it is very unlikely that
-the true coefficient of the corresponding predictor is actually zero.
-Their standard errors are very small but we have to keep in mind that they *must be compared to the estimate*. We see that the estimates of `Intercept`, and the predictors
+Their p-values are very low (significant) which means that it is very unlikely that the true coefficient of the corresponding predictor is actually zero.
+Their standard errors are very small but we have to keep in mind that they *must be compared to the actual estimate*. We see that the estimates of `Intercept`, and the predictors
 added at a late stage are the most uncertain ones.
 
+Let us also compare how the $R^2$ and $\text{AIC}$ changed with each added predictor.
+Let us visualize the $R^2$ after each step:
+```{r}
+predictor_number <- factor(1:nrow(optimal_metrics))
+plot <- optimal_metrics |> ggplot(aes(x = predictor_number, y = R2, group = 1)) +
+  geom_point() +
+  geom_line() +
+  labs(x = "p", y = expression(R^2))
+plot
+
+plot <- optimal_metrics |> ggplot(aes(x = predictor_number, y = AIC, group = 1)) +
+  geom_point() +
+  geom_line() +
+  labs(x = "p", y = "AIC")
+plot
+```
+
+They both show a similar evolvement over time, just in opposite directions (because for $\text{AIC}$ lower means better and for $R^2$ higher means better). Until $p = 4$ there was a high increase (decrease) with every added predictor, then the increase (decrease) then it flattened.
+At $p = 9$, where the stepwise LR algorithm stopped, we have $R^2 \approx 0.60$ and $\text{AIC} \approx 24500$.
+Compared to the values at $p = 1$ ($R^2 \approx 0.45$ and $\text{AIC} \approx 29700$) this is quite an improvement.
