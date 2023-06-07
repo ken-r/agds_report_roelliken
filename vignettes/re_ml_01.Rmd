@@ -1,5 +1,5 @@
 ---
-title: "Report Exercise Chapter 10"
+title: "Report Exercise Chapter 9"
 author: "Ken Rölli"
 output:
   html_document:
