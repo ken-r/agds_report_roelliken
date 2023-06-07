@@ -1,5 +1,7 @@
 # make model evaluation into a function to reuse code
 eval_knn <- function(k, df_train, df_test){
+  df_train <- df_train |> tidyr::drop_na()
+  df_test <- df_test |> tidyr::drop_na()
   pp <- recipes::recipe(GPP_NT_VUT_REF ~ SW_IN_F + VPD_F + TA_F, 
                         data = df_train) |> 
     # Dont apply boxcox for TA_F because it also contains negative values
@@ -17,7 +19,7 @@ eval_knn <- function(k, df_train, df_test){
   )
   
   df_test <- df_test |> 
-    drop_na()
+    tidyr::drop_na()
   df_test$fitted <- predict(mod, newdata = df_test)
   
   metrics_test <- df_test |> 
@@ -25,8 +27,8 @@ eval_knn <- function(k, df_train, df_test){
   
   # extract values from metrics tables
   mae_test <- metrics_test |> 
-    filter(.metric == "mae") |> 
-    pull(.estimate)
+    dplyr::filter(.metric == "mae") |> 
+    dplyr::pull(.estimate)
   
   return(mae_test)
 }
