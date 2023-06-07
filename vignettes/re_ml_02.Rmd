@@ -125,7 +125,8 @@ mae_lae_acrosssite <- MAE(daily_fluxes_dav_test$fit_lae_mae,
 
 rmse_lae_insite <- RMSE(daily_fluxes_lae_test$fit_lae_rmse,
                         daily_fluxes_lae_test$GPP_NT_VUT_REF)
-rmse_lae_acrosssite <- RMSE(daily_fluxes_dav_test$fit_lae_rmse,                               daily_fluxes_dav_test$GPP_NT_VUT_REF)
+rmse_lae_acrosssite <- RMSE(daily_fluxes_dav_test$fit_lae_rmse,
+                            daily_fluxes_dav_test$GPP_NT_VUT_REF)
 
 mae_lae_insite
 mae_lae_acrosssite
@@ -206,7 +207,7 @@ ENF (Evergreen Needleleaf Forests: Lands dominated by woody vegetation with a pe
 - Mean annual temperature: 2.8 °C
 
 ### Laegern
-Information taken from [here](https://fluxnet.org/sites/siteinfo/CH-Lae)
+Information taken from [here](https://fluxnet.org/sites/siteinfo/CH-Lae).
 MF (Mixed Forests: Lands dominated by trees with a percent cover >60% and height exceeding 2 meters. Consists of tree communities with interspersed mixtures or mosaics of the other four forest types. None of the forest types exceeds 60% of landscape.)
 
 - Climate: 

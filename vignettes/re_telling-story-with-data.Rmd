@@ -8,7 +8,7 @@ knit: (function(input, ...) {rmarkdown::render(input, output_dir = "../html")})
 
 # Setup and first thoughts
 At first, let's load the necessary libraries and take a look at the data. From the documentation we see that it is about New York air quality measurements from May to September 1973 (measured daily).
-The different variables were *measured at different places*, for example `Ozone` at Roosevelt Island, `Solar.R` at Central Park.
+The different variables were **measured at different places around New York**, for example `Ozone` at Roosevelt Island, `Solar.R` at Central Park.
 For us, it is not so convenient to work with 'mph' and 'degrees F', so we convert it to 'kmph' and 'degrees C'. For this conversion we use the package {weathermetrics}.
 
 
@@ -67,7 +67,7 @@ plot <- ggplot(
   data = airquality,
   aes(x = Month, y = Ozone)) +
   geom_boxplot(fill = "grey70", na.rm = TRUE) + # Remove the NA values
-  labs(title = "Ozone by Month",
+  labs(title = "Ozone by month",
        x = "Month",
        y = "Ozone (ppb)")
 plot
@@ -79,11 +79,10 @@ We see that ozone peaks in the summer months July and August. It seems reasonabl
 plot <- ggplot(
   data = airquality,
   aes(x = Month, y = Temp_C)) +
-  geom_boxplot(fill = "grey70", na.rm = TRUE) + # Remove the NA values
-  labs(title = "Temperature by Month") +
-  labs(x = "Month") +
-  labs(y = expression("Temperature (" ~ degree ~ "C)")) +
-  theme_classic()
+  geom_boxplot(fill = "grey70", na.rm = TRUE) +
+  labs(title = "Maximum daily temperature by month",
+       x = "Month",
+       y = "Maximum daily temperature (°C)")
 plot
 ```
 
@@ -98,8 +97,8 @@ plot_temp <- ggplot(
 ) +
   geom_point(na.rm = TRUE) +
   geom_smooth(formula = y ~ x, method = "lm", color = "red", se = F, na.rm = TRUE) +
-  labs(x = "Temperature (°C)",
-       y = "Ozone Concentration (ppb)",
+  labs(x = "Maximum daily temperature (°C)",
+       y = "Ozone (ppb)",
        title = "Linear model temperature")
 
 plot_wind <- ggplot(
@@ -109,7 +108,7 @@ plot_wind <- ggplot(
   geom_point(na.rm = TRUE) +
   geom_smooth(formula = y ~ x, method = "lm", color = "red", se = F, na.rm = TRUE) +
   labs(x = "Wind speed (km/h)",
-       y = "Ozone Concentration (ppb)",
+       y = "Ozone (ppb)",
        title = "Linear model wind speed"
        )
 

@@ -31,7 +31,7 @@ predictors
 ```
 
 # Evaluation of all bivariate models
-Now we can start with `p = 1`:
+Now we start with `p = 1`:
 ```{r}
 # Set up a tibble that contains the results (metrics) for the different models
 metrics <- tibble(predictor = character(), R2 = numeric(), AIC = numeric())
@@ -54,7 +54,7 @@ best_mod <- lm(reformulate(optimal_pred, target),
 
 summary(best_mod)
 ```
-We see that `PPFD_IN` (incoming photosynthetic photon flux density) lead to the best performance. This is not surprising because our aim is to predict `GPP` (gross primary production). `PPFD_IN` is the number of incoming photons in the 400-700 nm spectral range (per square meter per second) that plants are able to use for photosyntesis [source](https://en.wikipedia.org/wiki/Photosynthetically_active_radiation).
+We see that `PPFD_IN` (incoming photosynthetic photon flux density) lead to the best performance. This is not surprising because our aim is to predict `GPP` (gross primary production). `PPFD_IN` is the number of incoming photons in the 400-700 nm spectral range (per square meter per second) that plants are able to use for photosyntesis (see [Wikipedia](https://en.wikipedia.org/wiki/Photosynthetically_active_radiation)).
 
 
 We also see that the AIC is very big, and we could probably improve the model by increasing `p`, so by choosing more than just one single predictor.
@@ -65,7 +65,9 @@ half_hourly_fluxes |>  ggplot(aes(x = PPFD_IN, y = GPP_NT_VUT_REF)) +
   geom_point(alpha = 0.4, na.rm = TRUE) +
   geom_smooth(formula = y ~ x, method = "lm", aes(color = "lm"), 
               se = FALSE, na.rm = TRUE) +
-  labs(x = "PPFD", y = "GPP", color = "Regression")
+  labs(x = expression(paste("PPFD IN (", mu, "mol Photon m"^-2, "s"^-1, ")")), 
+       y = expression(paste("GPP (", mu, "mol CO"[2], "m"^-2, "s"^-1,")")),
+       color = "Regression")
 ```
 
 **Comment**
@@ -132,16 +134,19 @@ predictor_number <- factor(1:nrow(optimal_metrics))
 plot <- optimal_metrics |> ggplot(aes(x = predictor_number, y = R2, group = 1)) +
   geom_point() +
   geom_line() +
-  labs(x = "p", y = expression(R^2))
+  labs(x = "p", y = expression(R^2),
+       title = expression(paste(R^2, " after p steps"))
+  )
 plot
 
 plot <- optimal_metrics |> ggplot(aes(x = predictor_number, y = AIC, group = 1)) +
   geom_point() +
   geom_line() +
-  labs(x = "p", y = "AIC")
+  labs(x = "p", y = "AIC",
+       title = "AIC after p steps")
 plot
 ```
 
-They both show a similar evolvement over time, just in opposite directions (because for $\text{AIC}$ lower means better and for $R^2$ higher means better). Until $p = 4$ there was a high increase (decrease) with every added predictor, then the increase (decrease) then it flattened.
+They both develop similarly over time, just in opposite directions (because for $\text{AIC}$ lower means better and for $R^2$ higher means better). Until $p = 4$ there was a high increase (decrease) with every added predictor, then the increase (decrease) then it flattened.
 At $p = 9$, where the stepwise LR algorithm stopped, we have $R^2 \approx 0.60$ and $\text{AIC} \approx 24500$.
 Compared to the values at $p = 1$ ($R^2 \approx 0.45$ and $\text{AIC} \approx 29700$) this is quite an improvement.

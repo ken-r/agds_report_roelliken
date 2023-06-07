@@ -94,7 +94,7 @@ Linear regression:
 Above observations in the previous two questions agree with this.
 
 ## Visualize temporal variations
-At first, we need to add the predictions to the daily fluxes dataset.
+At first, we need to add the predictions to the daily fluxes data set.
 ```{r}
 daily_fluxes_pred_data <- daily_fluxes |> 
   drop_na()
@@ -107,16 +107,19 @@ daily_fluxes_pred_data <- daily_fluxes_pred_data |>
 ```
 
 ```{r}
+# margin in order to have enough space around individual plots
+plot_margin <- unit(c(1, 1, 1, 1), "cm")
 # Observed data plot
 gpp_obs <- ggplot(
   data = daily_fluxes_pred_data,
   aes(x = TIMESTAMP, y = GPP_NT_VUT_REF)) +
   geom_line() +
-  ylim(-1, 10) +
+  ylim(-1.5, 10) +
   labs(title = "Observed data",
        x = "Date",
        y = expression(paste("GPP (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
-       )
+       ) +
+  theme(plot.margin = plot_margin)
 nrow(daily_fluxes_pred_data)
 nrow(daily_fluxes_pred_data |> drop_na())
 # Linear model prediction plot
@@ -124,11 +127,12 @@ gpp_lm <- ggplot(
   data = daily_fluxes_pred_data,
   aes(x = TIMESTAMP, y = pred_lm)) +
   geom_line() +
-  ylim(-1, 10) +
+  ylim(-1.5, 10) +
   labs(title = "Linear model predictions",
        x = "Date",
        y = expression(paste("GPP (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
-  )
+  ) +
+  theme(plot.margin = plot_margin)
 
 # Residual plot LM
 res_lm <- ggplot(
@@ -140,18 +144,20 @@ res_lm <- ggplot(
   labs(title = "Linear model residuals", 
        x = "Date", 
        y = expression(paste("Residuals (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
-       )
+       ) +
+  theme(plot.margin = plot_margin)
 
 # KNN prediction plot
 gpp_knn <- ggplot(
   data = daily_fluxes_pred_data,
   aes(x = TIMESTAMP, y = pred_knn)) +
   geom_line() +
-  ylim(-1, 10) +
+  ylim(-1.5, 10) +
   labs(title = "KNN model predictions",
        x = "Date",
        y = expression(paste("GPP (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
-       )
+       ) +
+  theme(plot.margin = plot_margin)
 
 # Residual plot LM
 res_knn <- ggplot(
@@ -163,9 +169,11 @@ res_knn <- ggplot(
   labs(title = "KNN model residuals", 
        x = "Date", 
        y = expression(paste("Residuals (", mu, "mol CO"[2], "m"^-2, "s"^-1, ")"))
-       )
+       ) +
+  theme(plot.margin = plot_margin)
 
-cowplot::plot_grid(gpp_obs, gpp_lm, res_lm, gpp_obs, gpp_knn, res_knn, nrow = 3, ncol = 2, byrow = FALSE)
+cowplot::plot_grid(gpp_obs, gpp_lm, res_lm, gpp_obs, gpp_knn, res_knn, 
+                   nrow = 3, ncol = 2, byrow = FALSE)
 ```
 
 **Comment**
@@ -244,6 +252,7 @@ metrics_train
 metrics_test
 metrics_test |> ggplot(aes(x = factor(k_vec), y = MAE)) +
   geom_point() +
+  geom_line() +
   labs(x = "k", y = "MAE") +
   ggtitle("MAE on test set for different k")
 ```

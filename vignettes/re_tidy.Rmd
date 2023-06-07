@@ -53,6 +53,7 @@ knitr::kable(soil_organic_carbon)
 ```
 </details>
 
+
 Now we group it by experiments. The values we are interested in are the ambient
 CO2 concentrations (`AVG_AMB_CO2`) and the increased CO2 concentrations (`AVG_INC_CO2`).
 In our data, we get an average over some number of observation per experiment (also
