@@ -27,14 +27,14 @@ Finally, I renamed the variables to make them precise, short, consistent and wit
 ## R workflow
 At first we need to read in the `.csv` that we have saved in the `data` folder.
 For this exercise we often use {tidyverse}, so let us load it into the environment.
-```{r loadlib, echo=T, results='hide', message=F, warning=F}
+```{r message = FALSE}
 library(tidyverse)
 ```
 
 As our `.csv` is not formatted in the most standard way, we need the more general
 `readr::delim()` function instead of `readr::read_csv()`. Both come with the
 {tidyverse} package that we have already loaded.
-```{r results='hide'}
+```{r message = FALSE}
 # We need to use read_delim because our csv file has ";" as delimiter and "." as
 # decimal separator.
 soil_organic_carbon <- read_delim(here::here("data", "soil_organic_carbon_measurements.csv"),
@@ -42,13 +42,11 @@ soil_organic_carbon <- read_delim(here::here("data", "soil_organic_carbon_measur
                                        locale = locale(decimal_mark = "."),
                                        na = c("-")
                                        )
-# Check if there were any problems.
-problems(soil_organic_carbon)
 ```
 
 <details>
 <summary>The complete table now looks like this: [Click!]</summary>
-```{r collapsible=T}
+```{r collapsible = TRUE}
 knitr::kable(soil_organic_carbon)
 ```
 </details>

@@ -136,7 +136,7 @@ rmse_lae_acrosssite
 
 **Comments**
 - Model trained on Davos data: more data than Laegern
-  - in-site:
+  - in-site: best MAE and RMSE compared to the other test performances
   - across-site: much worse than in-site, better than across-site Laegern
 - Model trained on Laegern data: less data than Davos
   - in-site: quite good, but worse than Davos (probably due to less data)
@@ -146,7 +146,7 @@ rmse_lae_acrosssite
 ```{r}
 plot_dav_across <- ggplot(
   daily_fluxes_lae_test,
-  aes(x = GPP_NT_VUT_REF, y = fit_dav_lae)
+  aes(x = GPP_NT_VUT_REF, y = fit_dav_mae)
 ) + 
   geom_point() +
   labs(x = "GPP",
